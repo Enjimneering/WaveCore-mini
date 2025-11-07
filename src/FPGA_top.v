@@ -19,7 +19,7 @@ module APU_FPGA_top (
     output wire          aud_sd_o
 );
   
-  assign aud_sd_o = 1'b1;
+  assign aud_sd_o = 1'b0;
   wire pwm_ori;
   assign PWM = pwm_ori? 1'bz:1'b0;
    
@@ -77,7 +77,9 @@ module tt_um_enjimneering_apu (
    AudioProcessingUnit apu (
     .clk(clk),
     .reset(~rst_n),
-    .pitch(ui_in),
+    .SheepDragonCollision(ui_in[0]),
+    .SwordDragonCollision(ui_in[1]),
+    .PlayerDragonCollision(ui_in[2]),
     .x(x),
     .y(y),
     .sound(sound)

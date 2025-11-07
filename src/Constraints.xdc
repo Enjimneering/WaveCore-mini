@@ -1,6 +1,6 @@
 # System Signals
-create_clock -add -name sys_clk_pin -period 40.00 -waveform {0 1} [get_ports { CLK }];
-set_property -dict {PACKAGE_PIN E3  IOSTANDARD LVCMOS33} [get_ports CLK]
+create_clock -add -name sys_clk_pin -period 40.00 -waveform {0 1} [get_ports { clk }];
+set_property -dict {PACKAGE_PIN E3  IOSTANDARD LVCMOS33} [get_ports clk]
 set_property -dict {PACKAGE_PIN J15 IOSTANDARD LVCMOS33} [get_ports RST_N]
 
 set_property -dict { PACKAGE_PIN T8    IOSTANDARD LVCMOS33 } [get_ports PITCH[0]]

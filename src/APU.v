@@ -37,7 +37,7 @@ module AudioProcessingUnit (
   reg [15:0] counter_reg;
   wire [15:0] next_counter;
   
-  reg trigger;
+  wire trigger;
   reg square;
   wire counter_we;
 
