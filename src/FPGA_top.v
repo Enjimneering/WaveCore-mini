@@ -11,29 +11,24 @@
 
 module APU_FPGA_top (
     // System Signals
-    input  wire          CLK,            // PIN E3 (100 MHZ Clk)
+    input  wire          clk,            // PIN E3 (100 MHZ Clk)
     input  wire          RST_N,          // PIN J15
     input  wire [7:0]    PITCH,           // SWITCHES
     // Audio Signals
-    output wire          PWM             // PIN A11 (Headphone Jack)
+    output wire          PWM,            // PIN A11 (Headphone Jack)
+    output wire          aud_sd_o
 );
   
-   clk_div clkdiv
-   (
-    // Clock out ports
-    .clk_out(clk),     // output clk_out
-    // Status and control signals
-    .reset(!RST_N), // input reset
-   // Clock in ports
-    .clk_in(CLK)      // input clk_in
-    );
+  assign aud_sd_o = 1'b1;
+  wire pwm_ori;
+  assign PWM = pwm_ori? 1'bz:1'b0;
    
     /* Make sure the name is consistent with the current iteration of the chip! */
     tt_um_enjimneering_apu apu ( // Make sure the i/o pinout is accurate according to the spec!
         .ui_in    (PITCH),    
         .uo_out   (8'b00000000), 
         .uio_in   (8'b0000_0000),   
-        .uio_out  ({PWM,7'b000_0000}),    
+        .uio_out  ({pwm_ori,7'b000_0000}),    
         .uio_oe   ({8'b1000_0000}),                      
         .ena      (1),                                   
         .clk      (clk),      
