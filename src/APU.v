@@ -72,7 +72,7 @@ module AudioProcessingUnit (
 
 reg [15:0] pwm_counter = 0; // PWM timebase counter
 reg saw_pwm_out;
-reg pwm_out;
+wire pwm_out;
 reg lfsr_pwm_out;
 
 always @(posedge clk) begin
