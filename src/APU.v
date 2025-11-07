@@ -34,42 +34,55 @@ module AudioProcessingUnit (
   // Simple PWM sound generator based on sawtooth wave
   // Oscillator: Sawtooth wave
 
-  reg [7:0] saw_counter;
-  reg [7:0] saw_counter_next;
-  reg saw_we;
-  wire trig;
+  reg [15:0] counter_reg;
+  wire [15:0] next_counter;
+  
+  reg trigger;
+  reg square;
+  wire counter_we;
 
-  Counter #(.PERIOD_BITS(8), .LOG2_STEP(2)) saw_config (
-    .period0(0), .period1(8'hff), // Max period
+  Counter #(.PERIOD_BITS(16), .LOG2_STEP(2)) saw_config (
+    .period0(16'd100), .period1(16'd100),
     .enable(1'b1),
-    .trigger(trig),
-    .counter(saw_counter),
-    
-    .counter_we(saw_we), .next_counter(saw_counter_next)
+    .trigger(trigger),
+   	.counter(counter_reg),
+    .next_counter(next_counter),
+    .counter_we(counter_we)
   );
 
   always @(posedge clk) begin
     if (reset) begin
-      saw_counter <= 0;
+      counter_reg <= 0;
+      square <= 0;
     end else begin
-      if (saw_we) saw_counter <= saw_counter_next;
+      if (counter_we)
+        counter_reg <= next_counter;
+      if (trigger)
+          square <= ~square; // Toggle output each trigger
     end
   end
 
-reg [7:0] pwm_counter = 0; // PWM timebase counter
+reg [15:0] pwm_counter = 0; // PWM timebase counter
+reg saw_pwm_out;
 reg pwm_out;
+reg lsfr_out;
 
 always @(posedge clk) begin
     if (reset) begin
         pwm_counter <= 0;
-        pwm_out <= 0;
+        saw_pwm_out <= 0;
+        
     end else begin
         // Increment the pwm counter
         pwm_counter <= pwm_counter + 1;
         // PWM output: high while pwm_counter < saw_counter
-        pwm_out <= (pwm_counter < saw_counter);
+        saw_pwm_out <= (pwm_counter < counter_reg);
     end
 end
+
+assign pwm_out = SheepDragonCollision ?  saw_pwm_out :
+SwordDragonCollision ? square :
+PlayerDragonCollision ? lsfr_out : 1'b0;
 
 assign sound = pwm_out;
 
