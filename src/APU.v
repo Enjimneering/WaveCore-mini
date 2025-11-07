@@ -41,6 +41,14 @@ module AudioProcessingUnit (
   reg square;
   wire counter_we;
 
+  // snare noise    
+  reg [7:0] lfsr = 8'b10100101;
+  wire feedback = lfsr[7] ^ lfsr[5] ^ lfsr[2] ^ lfsr[0] + 1;
+  always @(posedge clk) begin
+    if (trigger)
+    lfsr <= {lfsr[6:0], feedback};
+  end
+
   Counter #(.PERIOD_BITS(16), .LOG2_STEP(2)) saw_config (
     .period0(16'd100), .period1(16'd100),
     .enable(1'b1),
@@ -65,24 +73,25 @@ module AudioProcessingUnit (
 reg [15:0] pwm_counter = 0; // PWM timebase counter
 reg saw_pwm_out;
 reg pwm_out;
-reg lsfr_out;
+reg lfsr_pwm_out;
 
 always @(posedge clk) begin
     if (reset) begin
         pwm_counter <= 0;
         saw_pwm_out <= 0;
-        
+        lfsr_pwm_out <= 0;
     end else begin
         // Increment the pwm counter
-        pwm_counter <= pwm_counter + 1;
+        pwm_counter  <= pwm_counter + 1;
         // PWM output: high while pwm_counter < saw_counter
-        saw_pwm_out <= (pwm_counter < counter_reg);
+        saw_pwm_out  <= (pwm_counter < counter_reg);
+        lfsr_pwm_out <= (lfsr < pwm_counter[7:0]);
     end
 end
 
 assign pwm_out = SheepDragonCollision ?  saw_pwm_out :
 SwordDragonCollision ? square :
-PlayerDragonCollision ? lsfr_out : 1'b0;
+PlayerDragonCollision ? lfsr_pwm_out : 1'b0;
 
 assign sound = pwm_out;
 
