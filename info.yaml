@@ -19,6 +19,7 @@ project:
   source_files:
     - "tt_top.v"
     - "APU.v"
+    - "SFX Trigger.v"
     - "sync.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
