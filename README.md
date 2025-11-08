@@ -2,6 +2,7 @@
 
 # WaveCore-Mini (Tiny Tapestation APU)
 
+- adapted from Tovioh's https://github.com/toivoh/tt05-synth and Urish's https://github.com/TinyTapeout/vga-playground 'music' demo.
 - [Read the documentation for project](docs/info.md)
 
 The AudioProcessingUnit module is a hardware sound generator inspired by retro console audio circuits.
