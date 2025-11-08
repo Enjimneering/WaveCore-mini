@@ -37,20 +37,18 @@ module AudioProcessingUnit (
   reg [15:0] counter_reg;
   wire [15:0] next_counter;
   
+<<<<<<< HEAD
   wire trigger;
   reg square;
+=======
+  reg square_reg;
+  wire trigger;
+>>>>>>> c2b382f (Lower Square Frequency, Add mixer at output)
   wire counter_we;
 
-  // snare noise    
-  reg [7:0] lfsr = 8'b10100101;
-  wire feedback = lfsr[7] ^ lfsr[5] ^ lfsr[2] ^ lfsr[0] + 1;
-  always @(posedge clk) begin
-    if (trigger)
-    lfsr <= {lfsr[6:0], feedback};
-  end
-
+  // Counter for sawtooth wave
   Counter #(.PERIOD_BITS(16), .LOG2_STEP(2)) saw_config (
-    .period0(16'd100), .period1(16'd100),
+    .period0(16'hAAAA), .period1(16'hAAAA),
     .enable(1'b1),
     .trigger(trigger),
    	.counter(counter_reg),
@@ -58,16 +56,36 @@ module AudioProcessingUnit (
     .counter_we(counter_we)
   );
 
+  reg[1:0] trig_count;
+
+  always @(posedge clk) begin
+    if (reset) begin
+      trig_count <= 0;
+      square_reg <= 0;
+    end else begin
+        if (trigger) begin
+          trig_count <= trig_count + 1;
+        if (trig_count == 2'b01) 
+          square_reg <= ~square_reg;
+        end 
+    end
+  end
+
   always @(posedge clk) begin
     if (reset) begin
       counter_reg <= 0;
-      square <= 0;
     end else begin
-      if (counter_we)
-        counter_reg <= next_counter;
-      if (trigger)
-          square <= ~square; // Toggle output each trigger
+      if (counter_we) begin
+        counter_reg <= next_counter; 
+      end
     end
+  end
+
+  // lsfr  
+  reg [12:0] lfsr = 13'hae1f;
+  wire feedback = lfsr[12] ^ lfsr[8] ^ lfsr[2] ^ lfsr[0] + 1;
+  always @(posedge clk) begin
+    lfsr <= {lfsr[11:0], feedback};
   end
 
 reg [15:0] pwm_counter = 0; // PWM timebase counter
@@ -85,14 +103,14 @@ always @(posedge clk) begin
         pwm_counter  <= pwm_counter + 1;
         // PWM output: high while pwm_counter < saw_counter
         saw_pwm_out  <= (pwm_counter < counter_reg);
-        lfsr_pwm_out <= (lfsr < pwm_counter[7:0]);
+        lfsr_pwm_out <= (pwm_counter[12:0] < lfsr);
     end
 end
 
-assign pwm_out = SheepDragonCollision ?  saw_pwm_out :
-SwordDragonCollision ? square :
-PlayerDragonCollision ? lfsr_pwm_out : 1'b0;
+wire saw    = SheepDragonCollision & saw_pwm_out;
+wire noise  = PlayerDragonCollision & lfsr_pwm_out;
+wire square = SwordDragonCollision & square_reg;
 
-assign sound = pwm_out;
+assign pwm_out = saw + noise + square;
 
 endmodule
