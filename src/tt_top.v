@@ -52,15 +52,33 @@ module tt_um_enjimneering_apu (
     .vpos(y)
   );
 
-   AudioProcessingUnit apu (
+
+reg trig_eat;
+reg trig_die;
+reg trig_hit;
+
+ // TODO map these inputs correctly
+APU_trigger apu_trig (
     .clk(clk),
     .reset(~rst_n),
-    .SheepDragonCollision(ui_in[0]),
+    .frame_end((x == 0) & (y == 0)),     // TODO: use frame end signal here
+    .SheepDragonCollision(ui_in[0]),    
     .SwordDragonCollision(ui_in[1]),
     .PlayerDragonCollision(ui_in[2]),
+    .eat_sound(trig_eat),
+    .die_sound(trig_die),
+    .hit_sound(trig_hit)
+  );
+  
+AudioProcessingUnit apu (
+    .clk(clk),
+    .reset(~rst_n),
+    .saw_trigger(trig_eat),
+    .noise_trigger(trig_die),
+    .square_trigger(trig_hit),
     .x(x),
     .y(y),
     .sound(sound)
   );
-  
+
 endmodule

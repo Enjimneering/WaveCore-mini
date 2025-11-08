@@ -22,45 +22,41 @@ endmodule
 module AudioProcessingUnit (
     input wire clk,
     input wire reset,
-    input wire SheepDragonCollision,
-    input wire SwordDragonCollision,
-    input wire PlayerDragonCollision,
+    input wire saw_trigger,
+    input wire square_trigger,
+    input wire noise_trigger,
     // input wire frame_end,
     input wire [9:0] x,
     input wire [9:0] y,
     output wire sound
 );
 
-  // Simple PWM sound generator based on sawtooth wave
-  // Oscillator: Sawtooth wave
+  reg  [15:0] counter_reg;   // current value of the oscillator counter (used as value for sawtooth wave)
+  wire [15:0] next_counter;  // next value of the oscillator counter
+  wire        osc_wrapped;   // strobe to indicate that the oscillator counter has wrapped around
+  reg  [2:0]  wrap_count;    // counter for the number of oscillator wraps (used to toggle square wave
+  wire        counter_we;    // write enable for the oscillator counter
 
-  reg [15:0] counter_reg;
-  wire [15:0] next_counter;
-  
-  reg square_reg;
-  wire trigger;
-  wire counter_we;
-
-  // Counter for sawtooth wave
+  // Parameterized down-counter used as oscillator
   Counter #(.PERIOD_BITS(16), .LOG2_STEP(2)) saw_config (
     .period0(16'hAAAA), .period1(16'hAAAA),
     .enable(1'b1),
-    .trigger(trigger),
+    .trigger(osc_wrapped),
    	.counter(counter_reg),
     .next_counter(next_counter),
     .counter_we(counter_we)
   );
 
-  reg[2:0] trig_count;
+  reg square_reg;  // current state of the square wave output
 
   always @(posedge clk) begin
     if (reset) begin
-      trig_count <= 0;
+      wrap_count <= 0;
       square_reg <= 0;
     end else begin
-      if (trigger) begin
-        trig_count <= trig_count + 1;
-      if (trig_count == 3'b111) 
+      if (osc_wrapped) begin
+        wrap_count <= wrap_count + 1;
+      if (wrap_count == 3'b111) 
         square_reg <= ~square_reg;
       end 
     end
@@ -76,7 +72,16 @@ module AudioProcessingUnit (
     end
   end
 
-  reg [15:0] pwm_counter = 0; // PWM timebase counter
+
+  // linear feedback shift register for noise generation
+  reg [12:0] lfsr = 13'h0e1f;
+  wire feedback = lfsr[12] ^ lfsr[8] ^ lfsr[2] ^ lfsr[0] + 1;
+  always @(posedge clk) begin
+    lfsr <= {lfsr[11:0], feedback};
+  end
+
+  // simple  Pulse Width Modulation (PWM) generator
+  reg [15:0] pwm_counter;   
   reg saw_pwm_out;
   reg lfsr_pwm_out;
 
@@ -88,18 +93,10 @@ module AudioProcessingUnit (
     end else begin
         // Increment the pwm counter
         pwm_counter  <= pwm_counter + 1;
-        // PWM output: high while pwm_counter < saw_counter
+        // PWM output reg's
         saw_pwm_out  <= (pwm_counter < counter_reg);
         lfsr_pwm_out <= (pwm_counter[12:0] < lfsr);
     end
-  end
-
-
-  // lsfr  
-  reg [12:0] lfsr = 13'h0e1f;
-  wire feedback = lfsr[12] ^ lfsr[8] ^ lfsr[2] ^ lfsr[0] + 1;
-  always @(posedge clk) begin
-    lfsr <= {lfsr[11:0], feedback};
   end
 
   // envelopes and timer
@@ -136,9 +133,11 @@ module AudioProcessingUnit (
     end
   end
 
-  wire saw    = SheepDragonCollision  & saw_pwm_out & (x < envelopeA*8);
-  wire noise  = PlayerDragonCollision & noise_reg   & (x >= 128 && x < 128+envelopeB*4);
-  wire square = SwordDragonCollision  & square_reg  & (x < envelopeA*4); ;
+  // output mixer stage
+
+  wire saw    = saw_trigger     & saw_pwm_out  & (x < envelopeA*8);
+  wire noise  = noise_trigger   & noise_reg    & (x >= 128 && x < 128+envelopeB*4);
+  wire square = square_trigger  & square_reg   & (x < envelopeA*4);
 
   assign sound = saw + noise + square;
 
