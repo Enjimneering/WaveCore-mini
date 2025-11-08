@@ -1,42 +1,161 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Tiny Tapeout Verilog Project Template
+# WaveCore-Mini (Tiny Tapestation APU)
 
 - [Read the documentation for project](docs/info.md)
 
-## What is Tiny Tapeout?
+🎵 AudioProcessingUnit — Verilog Sound Synthesizer
+Overview
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
+The AudioProcessingUnit module is a hardware sound generator inspired by retro console audio circuits.
+It synthesizes three basic waveforms — sawtooth, square, and noise — using digital oscillators, counters, and envelope shaping logic.
+The outputs of these three sources are combined (mixed) into a single sound signal using pulse-width modulation (PWM).
 
-To learn more and get started, visit https://tinytapeout.com.
+## Module Interface
+module AudioProcessingUnit (
+    input  wire        clk,
+    input  wire        reset,
+    input  wire        saw_trigger,
+    input  wire        square_trigger,
+    input  wire        noise_trigger,
+    input  wire [9:0]  x,
+    input  wire [9:0]  y,
+    output wire        sound
+);
 
-## Set up your Verilog project
+Signal Direction	Width	Description
+clk	input	1	System clock.
+reset	input	1	Active-high reset signal.
+saw_trigger	input	1	Enables the sawtooth channel.
+square_trigger	input	1	Enables the square channel.
+noise_trigger	input	1	Enables the noise channel.
+x, y	input	10	Timing coordinates, used for frame and envelope timing.
+sound	output	1	Combined PWM audio output.
 
-1. Add your Verilog files to the `src` folder.
-2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/info.md](docs/info.md) and add a description of your project.
-4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
+## Internal Architecture
+1. Parameterized Down-Counter (Oscillator Core)
+Counter #(.PERIOD_BITS(16), .LOG2_STEP(2)) saw_config (...);
 
-The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
+This Counter module acts as a periodic down-counter oscillator.
 
-## Enable GitHub actions to build the results page
+It decrements its internal value in steps of 2^LOG2_STEP.
 
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
+When the counter wraps around (i.e., reaches zero), a trigger pulse (osc_wrapped) is generated.
 
-## Resources
+The counter reloads with either period0 or period1, controlling frequency modulation.
 
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
+## Technical Notes:
 
-## What next?
+1. Sawtooth Wave Oscillator
+reg [15:0] counter_reg;
+wire [15:0] next_counter;
+wire osc_wrapped;
 
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+
+The Counter drives counter_reg, which continuously increments/decrements to produce a linearly ramping value.
+
+This acts as the sawtooth waveform source, with counter_reg effectively representing the instantaneous amplitude.
+
+When osc_wrapped asserts, the waveform restarts from zero, completing one period.
+
+
+2. Square Wave Generator
+reg [2:0] wrap_count;
+reg square_reg;
+
+The square wave is derived from the oscillator’s wrap events.
+Every 8 wraps (wrap_count == 3'b111), the output toggles (square_reg <= ~square_reg).
+This divides the saw oscillator’s base frequency, producing a square wave at 1/16 of the saw’s frequency.
+
+3. Noise Generator (LFSR-Based)
+reg [12:0] lfsr = 13'h0e1f;
+wire feedback = lfsr[12] ^ lfsr[8] ^ lfsr[2] ^ lfsr[0] + 1;
+
+
+A Linear Feedback Shift Register (LFSR) is used to generate pseudo-random noise.
+
+The feedback taps (12, 8, 2, 0) implement a primitive polynomial for 13-bit maximal-length sequence.
+
+On each clock cycle, lfsr shifts right and inserts feedback at bit 0.
+
+The XOR of several bits (^lfsr) is used as the noise signal (noise_src).
+
+Purpose: Emulates white noise typically used in percussion or background texture synthesis.
+
+4. Pulse Width Modulation (PWM) Stage
+reg [15:0] pwm_counter;
+reg saw_pwm_out, lfsr_pwm_out;
+
+
+PWM is used to digitally encode analog-like amplitude levels.
+
+A 16-bit free-running pwm_counter increments each cycle.
+
+Each waveform source compares its value to the counter:
+
+saw_pwm_out <= (pwm_counter < counter_reg);
+
+lfsr_pwm_out <= (pwm_counter[12:0] < lfsr);
+
+This effectively produces a duty cycle proportional to waveform amplitude.
+
+5. Frame Counter and Envelopes
+reg [11:0] frame_counter;
+wire [4:0] envelopeA = 5'd31 - timer[4:0];
+wire [4:0] envelopeB = 5'd31 - timer[3:0]*2;
+
+
+frame_counter increments periodically when (x == 0 && y == 0) — simulating video frame timing or rhythm sync.
+
+Two envelope profiles modulate amplitude over time:
+
+Envelope A: Slow exponential decay (~32 frames)
+
+Envelope B: Faster decay (~16 frames)
+
+This allows dynamic shaping of sound intensity (fade-out effects, plucks, etc.).
+
+6. Mixer and Output Logic
+wire saw    = saw_trigger    & saw_pwm_out  & (x < envelopeA*8);
+wire noise  = noise_trigger  & noise_reg    & (x >= 128 && x < 128+envelopeB*4);
+wire square = square_trigger & square_reg   & (x < envelopeA*4);
+assign sound = saw + noise + square;
+
+
+Each waveform is conditionally mixed:
+
+Triggers (*_trigger) enable each sound channel.
+
+Envelope gating modulates volume by comparing x to envelope strength.
+
+Spatial gating using x and y allows multi-channel timing or display-sync effects.
+
+The sum of all active sources is output as a single digital sound bitstream, ready for DAC or external filtering.
+
+## Sound Types
+Type	Source	Characteristic	Technical Description
+Sawtooth	counter_reg	Bright, buzzy tone rich in harmonics	Generated by incrementing a 16-bit counter; amplitude ramps linearly until wrap-around.
+Square	square_reg	Hollow, pulse-like tone	Derived from saw oscillator’s wraps; toggles state every 8 periods to form 50% duty cycle.
+Noise	lfsr	Random, percussive or static noise	Uses a 13-bit LFSR to produce pseudo-random sequence, modulated by a rapid envelope.
+
+
+## Summary of Signal Flow
+
+Counter → Sawtooth → Wrap Count → Square Wave
+                      ↓
+                  LFSR → Noise
+                      ↓
+             PWM + Envelopes → Mixer → sound
+
+
+## Key Features
+
+Purely digital — no lookup tables or analog approximations.
+
+Realistic amplitude envelopes with frame-based decay.
+
+Parameterized design (adjustable counter resolution and step size).
+
+Independent enable signals for saw, square, and noise generation.
+
+Simple, synthesizable logic suitable for FPGA or ASIC implementation.
