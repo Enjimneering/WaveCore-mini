@@ -37,13 +37,8 @@ module AudioProcessingUnit (
   reg [15:0] counter_reg;
   wire [15:0] next_counter;
   
-<<<<<<< HEAD
-  wire trigger;
-  reg square;
-=======
   reg square_reg;
   wire trigger;
->>>>>>> c2b382f (Lower Square Frequency, Add mixer at output)
   wire counter_we;
 
   // Counter for sawtooth wave
@@ -82,7 +77,7 @@ module AudioProcessingUnit (
   end
 
   // lsfr  
-  reg [12:0] lfsr = 13'hae1f;
+  reg [12:0] lfsr = 13'h0e1f;
   wire feedback = lfsr[12] ^ lfsr[8] ^ lfsr[2] ^ lfsr[0] + 1;
   always @(posedge clk) begin
     lfsr <= {lfsr[11:0], feedback};
@@ -90,7 +85,6 @@ module AudioProcessingUnit (
 
 reg [15:0] pwm_counter = 0; // PWM timebase counter
 reg saw_pwm_out;
-wire pwm_out;
 reg lfsr_pwm_out;
 
 always @(posedge clk) begin
@@ -111,6 +105,6 @@ wire saw    = SheepDragonCollision & saw_pwm_out;
 wire noise  = PlayerDragonCollision & lfsr_pwm_out;
 wire square = SwordDragonCollision & square_reg;
 
-assign pwm_out = saw + noise + square;
+assign sound = saw + noise + square;
 
 endmodule

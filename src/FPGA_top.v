@@ -19,7 +19,7 @@ module APU_FPGA_top (
     output wire          aud_sd_o
 );
   
-  assign aud_sd_o = 1'b0;
+  assign aud_sd_o = 1'b1;
   wire pwm_ori;
   assign PWM = pwm_ori? 1'bz:1'b0;
    
