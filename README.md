@@ -4,9 +4,6 @@
 
 - [Read the documentation for project](docs/info.md)
 
-🎵 AudioProcessingUnit — Verilog Sound Synthesizer
-Overview
-
 The AudioProcessingUnit module is a hardware sound generator inspired by retro console audio circuits.
 It synthesizes three basic waveforms — sawtooth, square, and noise — using digital oscillators, counters, and envelope shaping logic.
 The outputs of these three sources are combined (mixed) into a single sound signal using pulse-width modulation (PWM).
@@ -34,8 +31,10 @@ sound	output	1	Combined PWM audio output.
 
 ## Internal Architecture
 1. Parameterized Down-Counter (Oscillator Core)
-Counter #(.PERIOD_BITS(16), .LOG2_STEP(2)) saw_config (...);
 
+```
+Counter #(.PERIOD_BITS(16), .LOG2_STEP(2)) saw_config (...);
+```
 This Counter module acts as a periodic down-counter oscillator.
 
 It decrements its internal value in steps of 2^LOG2_STEP.
@@ -47,10 +46,12 @@ The counter reloads with either period0 or period1, controlling frequency modula
 ## Technical Notes:
 
 1. Sawtooth Wave Oscillator
+
+```
 reg [15:0] counter_reg;
 wire [15:0] next_counter;
 wire osc_wrapped;
-
+```
 
 The Counter drives counter_reg, which continuously increments/decrements to produce a linearly ramping value.
 
@@ -59,7 +60,7 @@ This acts as the sawtooth waveform source, with counter_reg effectively represen
 When osc_wrapped asserts, the waveform restarts from zero, completing one period.
 
 
-2. Square Wave Generator
+## 2. Square Wave Generator
 reg [2:0] wrap_count;
 reg square_reg;
 
@@ -67,10 +68,12 @@ The square wave is derived from the oscillator’s wrap events.
 Every 8 wraps (wrap_count == 3'b111), the output toggles (square_reg <= ~square_reg).
 This divides the saw oscillator’s base frequency, producing a square wave at 1/16 of the saw’s frequency.
 
-3. Noise Generator (LFSR-Based)
+## 3. Noise Generator (LFSR-Based)
+
+```
 reg [12:0] lfsr = 13'h0e1f;
 wire feedback = lfsr[12] ^ lfsr[8] ^ lfsr[2] ^ lfsr[0] + 1;
-
+```
 
 A Linear Feedback Shift Register (LFSR) is used to generate pseudo-random noise.
 
@@ -82,10 +85,12 @@ The XOR of several bits (^lfsr) is used as the noise signal (noise_src).
 
 Purpose: Emulates white noise typically used in percussion or background texture synthesis.
 
-4. Pulse Width Modulation (PWM) Stage
+## 4. Pulse Width Modulation (PWM) Stage
+
+```
 reg [15:0] pwm_counter;
 reg saw_pwm_out, lfsr_pwm_out;
-
+```
 
 PWM is used to digitally encode analog-like amplitude levels.
 
@@ -93,17 +98,21 @@ A 16-bit free-running pwm_counter increments each cycle.
 
 Each waveform source compares its value to the counter:
 
+```
 saw_pwm_out <= (pwm_counter < counter_reg);
 
 lfsr_pwm_out <= (pwm_counter[12:0] < lfsr);
+```
 
 This effectively produces a duty cycle proportional to waveform amplitude.
 
-5. Frame Counter and Envelopes
+## 5. Frame Counter and Envelopes
+
+```
 reg [11:0] frame_counter;
 wire [4:0] envelopeA = 5'd31 - timer[4:0];
 wire [4:0] envelopeB = 5'd31 - timer[3:0]*2;
-
+```
 
 frame_counter increments periodically when (x == 0 && y == 0) — simulating video frame timing or rhythm sync.
 
@@ -115,12 +124,13 @@ Envelope B: Faster decay (~16 frames)
 
 This allows dynamic shaping of sound intensity (fade-out effects, plucks, etc.).
 
-6. Mixer and Output Logic
+## 6. Mixer and Output Logic
+```
 wire saw    = saw_trigger    & saw_pwm_out  & (x < envelopeA*8);
 wire noise  = noise_trigger  & noise_reg    & (x >= 128 && x < 128+envelopeB*4);
 wire square = square_trigger & square_reg   & (x < envelopeA*4);
 assign sound = saw + noise + square;
-
+```
 
 Each waveform is conditionally mixed:
 
@@ -148,14 +158,13 @@ Counter → Sawtooth → Wrap Count → Square Wave
              PWM + Envelopes → Mixer → sound
 
 
-## Key Features
+## Key Features
+! Purely digital — no lookup tables or analog approximations.
 
-Purely digital — no lookup tables or analog approximations.
+! Realistic amplitude envelopes with frame-based decay.
 
-Realistic amplitude envelopes with frame-based decay.
+! Parameterized design (adjustable counter resolution and step size).
 
-Parameterized design (adjustable counter resolution and step size).
+! Independent enable signals for saw, square, and noise generation.
 
-Independent enable signals for saw, square, and noise generation.
-
-Simple, synthesizable logic suitable for FPGA or ASIC implementation.
+! Simple, synthesizable logic suitable for FPGA or ASIC implementation.
