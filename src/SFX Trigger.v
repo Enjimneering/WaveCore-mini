@@ -2,6 +2,7 @@ module APU_trigger (
     input wire  clk,
     input wire  reset,
     input wire  frame_end,
+    input wire  test_mode,
     input wire  SheepDragonCollision,
     input wire  SwordDragonCollision,
     input wire  PlayerDragonCollision,
@@ -24,23 +25,28 @@ module APU_trigger (
       end
     end
   end
-
+  
   // detect the rising edge of the trigger signals
   always @ (posedge clk) begin
-    if (trigger_buf[0] & ~trigger_buf[0])  
-      eat_sound <= 1'b1;
-    else 
-      eat_sound <= 1'b0;
+    if (!test_mode) begin
+      if (trigger_buf[0] & ~trigger_buf[0])  
+        eat_sound <= 1'b1;
+      else 
+        eat_sound <= 1'b0;
 
-    if (~trigger_buf[1] & trigger_buf[1])  
-      die_sound <= 1'b1;
-    else 
-      die_sound <= 1'b0;
+      if (~trigger_buf[1] & trigger_buf[1])  
+        die_sound <= 1'b1;
+      else 
+        die_sound <= 1'b0;
 
-    if (~trigger_buf[2] & trigger_buf[2])  
-      hit_sound <= 1'b1;
-    else 
-      hit_sound <= 1'b0;
+      if (~trigger_buf[2] & trigger_buf[2])  
+        hit_sound <= 1'b1;
+      else 
+        hit_sound <= 1'b0;
+    end else begin
+      eat_sound <= SheepDragonCollision;
+      die_sound <= PlayerDragonCollision;
+      hit_sound <= SwordDragonCollision;
+    end
   end
-
-endmodule
+                                                                                                         endmodule
