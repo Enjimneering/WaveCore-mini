@@ -52,19 +52,21 @@ module tt_um_enjimneering_apu (
     .vpos(y)
   );
 
+  reg trig_eat;
+  reg trig_die;
+  reg trig_hit;
 
-reg trig_eat;
-reg trig_die;
-reg trig_hit;
-
- // TODO map these inputs correctly
+// TODO map these inputs correctly
 APU_trigger apu_trig (
     .clk(clk),
     .reset(~rst_n),
     .frame_end((x == 0) & (y == 0)),     // TODO: use frame end signal here
+    // TODO map these inputs correctly
     .SheepDragonCollision(ui_in[0]),    
     .SwordDragonCollision(ui_in[1]),
     .PlayerDragonCollision(ui_in[2]),
+    .test_mode(ui_in[3]),
+    // outputs to the apu
     .eat_sound(trig_eat),
     .die_sound(trig_die),
     .hit_sound(trig_hit)

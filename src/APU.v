@@ -25,7 +25,6 @@ module AudioProcessingUnit (
     input wire saw_trigger,
     input wire square_trigger,
     input wire noise_trigger,
-    // input wire frame_end,
     input wire [9:0] x,
     input wire [9:0] y,
     output wire sound
@@ -71,7 +70,6 @@ module AudioProcessingUnit (
       end
     end
   end
-
 
   // linear feedback shift register for noise generation
   reg [12:0] lfsr = 13'h0e1f;
